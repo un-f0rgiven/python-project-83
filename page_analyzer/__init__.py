@@ -1,8 +1,15 @@
 from flask import Flask
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 app = Flask(__name__)
 
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
 @app.route('/')
 def home():
-    return "Ксюша, я тебя люблю)"
+    return "The key to that chain is in the bathtub"
+
+__all__ = ['app']
