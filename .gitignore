@@ -1,4 +1,4 @@
 .env
-__pycache__/
+page_analyzer/__pycache__/
 *.pyc
 test.*
