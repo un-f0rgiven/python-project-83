@@ -3,6 +3,8 @@ import os
 import psycopg2
 import logging
 import re
+import validators
+from urllib.parse import urlparse, urlunparse
 from dotenv import load_dotenv
 
 # Загрузка переменных окружения из файла .env
@@ -24,21 +26,21 @@ def get_db_connection():
         logging.error(f"Error connecting to the database: {e}")
         raise
 
+# Нормализация URL
+def normalize_url(url):
+    parsed_url = urlparse(url)  # Разобрать URL
+    # Убираем лишние пробелы и приводим домен к нижнему регистру
+    netloc = parsed_url.netloc.strip().lower()
+    # Формируем нормализованный URL
+    normalized_url = urlunparse((parsed_url.scheme, netloc, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment))
+    return normalized_url
+
 # Валидация URL
 def is_valid_url(url):
     # Проверка на длину
     if len(url) > 255:
         return False
-    # Регулярное выражение для проверки формата URL
-    regex = re.compile(
-        r'^(?:http|ftp)s?://'  # Протокол
-        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'  # Домен
-        r'localhost|'  # Локальный адрес
-        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|'  # IPv4
-        r'\[?[A-F0-9]*:[A-F0-9:]+\]?)'  # IPv6
-        r'(?::\d+)?'  # Порт
-        r'(?:/?|[/?]\S+)$', re.IGNORECASE)  # Оставшаяся часть URL
-    return re.match(regex, url) is not None
+    return validators.url(url)
 
 # Обработчик для добавления URL
 @app.route('/', methods=['GET', 'POST'])
@@ -47,19 +49,20 @@ def home():
     if request.method == 'POST':
         url = request.form['url']
         if is_valid_url(url):
+            normalized_url = normalize_url(url)  # Нормализуем URL
             try:
                 with get_db_connection() as conn:
                     with conn.cursor() as cursor:
-                        # Проверка наличия URL в базе данных
-                        cursor.execute("SELECT id FROM urls WHERE name = %s", (url,))
+                        # Проверка наличия нормализованного URL в базе данных
+                        cursor.execute("SELECT id FROM urls WHERE name = %s", (normalized_url,))
                         existing_url = cursor.fetchone()
 
                         if existing_url:
                             flash('Этот URL уже существует!', 'info')  # Сообщение о существующем URL
                             return redirect(url_for('show_url', url_id=existing_url[0]))  # Перенаправление на существующий URL
 
-                        # Добавление нового URL
-                        cursor.execute("INSERT INTO urls (name) VALUES (%s) RETURNING id", (url,))
+                        # Добавление нового нормализованного URL
+                        cursor.execute("INSERT INTO urls (name) VALUES (%s) RETURNING id", (normalized_url,))
                         url_id = cursor.fetchone()[0]
                 conn.commit()
                 flash('URL успешно добавлен!', 'success')  # Сообщение об успешном добавлении
