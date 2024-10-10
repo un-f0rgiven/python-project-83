@@ -47,7 +47,7 @@ def is_valid_url(url):
 def home():
     error_message = None  # Переменная для хранения сообщения об ошибке
     if request.method == 'POST':
-        url = request.form['url']
+        url = request.form.get('url')
         if is_valid_url(url):
             normalized_url = normalize_url(url)  # Нормализуем URL
             try:
@@ -77,33 +77,41 @@ def home():
     # Возвращаем шаблон для GET-запроса или в случае ошибки
     return render_template('index.html', error_message=error_message)
 
+
 @app.route('/urls/<int:url_id>')
 def show_url(url_id):
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute("SELECT name FROM urls WHERE id = %s", (url_id,))
-                url = cursor.fetchone()
-                if url:
-                    return render_template('show_url.html', url=url[0], data_test_url="url")  # Передаем data-test атрибут
-                else:
-                    return "URL не найден", 404
+                # Извлекаем URL по ID
+                cursor.execute("SELECT id, name, created_at FROM urls WHERE id = %s", (url_id,))
+                url_data = cursor.fetchone()
+
+                if url_data is None:
+                    flash('URL не найден.', 'danger')  # Если URL не найден
+                    return redirect(url_for('home'))  # Перенаправление на главную страницу
+
+                return render_template('show_url.html', url_id=url_data[0], url_name=url_data[1], created_at=url_data[2])  # Передаем найденные данные в шаблон
     except Exception as e:
-        logging.error(f"Error retrieving URL: {e}")
-        return "Ошибка при получении URL", 500
+        logging.exception("Ошибка при получении URL.")
+        flash('Ошибка при получении URL. Попробуйте снова.', 'danger')
+        return redirect(url_for('home'))
+
 
 @app.route('/urls')
 def list_urls():
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
-                # Запрос всех URL, отсортированных по времени добавления (предполагается, что есть столбец `created_at`)
-                cursor.execute("SELECT id, name FROM urls ORDER BY id DESC")  # ID должно быть последовательно увеличиваться
+                # Извлекаем все URL, сортируя по дате создания (новые записи первыми)
+                cursor.execute("SELECT id, name FROM urls ORDER BY created_at DESC")
                 urls = cursor.fetchall()  # Получаем все записи
-            return render_template('list_urls.html', urls=urls, data_test_urls="urls")  # Передаем атрибут data-test
+
+                return render_template('list_urls.html', urls=urls)  # Передаем записи в шаблон
     except Exception as e:
-        logging.error(f"Error retrieving URLs: {e}")
-        return "Ошибка при получении URL", 500
+        logging.exception("Ошибка при получении списка URL.")
+        flash('Ошибка при получении списка URL. Попробуйте снова.', 'danger')
+        return redirect(url_for('home'))
 
 if __name__ == '__main__':
     app.run(debug=True)
