@@ -6,6 +6,7 @@ import re
 import validators
 from urllib.parse import urlparse, urlunparse
 from dotenv import load_dotenv
+from datetime import date
 
 # Загрузка переменных окружения из файла .env
 load_dotenv()
@@ -90,21 +91,31 @@ def show_url(url_id):
                 if url_data is None:
                     flash('URL не найден.', 'danger')  # Если URL не найден
                     return redirect(url_for('home'))  # Перенаправление на главную страницу
+                
+                # Извлекаем проверки для данного URL
+                cursor.execute("SELECT id, status_code, h1, title, description, created_at FROM url_checks WHERE url_id = %s", (url_id,))
+                checks = cursor.fetchall()  # Получаем все проверки
 
-                return render_template('show_url.html', url_id=url_data[0], url_name=url_data[1], created_at=url_data[2])  # Передаем найденные данные в шаблон
+                return render_template('show_url.html', url_id=url_data[0], url_name=url_data[1], created_at=url_data[2], checks=checks)  # Передаем найденные данные и проверки в шаблон
     except Exception as e:
         logging.exception("Ошибка при получении URL.")
         flash('Ошибка при получении URL. Попробуйте снова.', 'danger')
         return redirect(url_for('home'))
-
 
 @app.route('/urls')
 def list_urls():
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
-                # Извлекаем все URL, сортируя по дате создания (новые записи первыми)
-                cursor.execute("SELECT id, name FROM urls ORDER BY created_at DESC")
+                # Извлекаем все URL, включая дату последней проверки
+                cursor.execute("""
+                    SELECT u.id, u.name, 
+                           MAX(uc.created_at) AS last_check_date
+                    FROM urls u
+                    LEFT JOIN url_checks uc ON u.id = uc.url_id
+                    GROUP BY u.id, u.name
+                    ORDER BY u.created_at DESC
+                """)
                 urls = cursor.fetchall()  # Получаем все записи
 
                 return render_template('list_urls.html', urls=urls)  # Передаем записи в шаблон
@@ -112,6 +123,29 @@ def list_urls():
         logging.exception("Ошибка при получении списка URL.")
         flash('Ошибка при получении списка URL. Попробуйте снова.', 'danger')
         return redirect(url_for('home'))
+
+
+@app.route('/urls/<int:url_id>/checks', methods=['POST'])  # Обработчик для POST-запроса
+def create_check(url_id):
+    try:
+        # Получаем текущее время для поля created_at
+        created_at = date.today()
+
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                # Вставляем новую проверку в таблицу url_checks
+                cursor.execute(
+                    "INSERT INTO url_checks (url_id, created_at) VALUES (%s, %s)",
+                    (url_id, created_at)
+                )
+                conn.commit()
+
+        flash('Проверка успешно создана!', 'success')  # Сообщение об успешном создании проверки
+    except Exception as e:
+        logging.exception("Ошибка при создании проверки.")
+        flash('Ошибка при создании проверки. Попробуйте снова.', 'danger')  # Сообщение об ошибке
+
+    return redirect(url_for('show_url', url_id=url_id))  # Перенаправление на страницу URL
 
 if __name__ == '__main__':
     app.run(debug=True)
