@@ -33,10 +33,12 @@ def get_db_connection():
 # Функция для нормализации URL
 def normalize_url(url):
     parsed_url = urlparse(url)  # Разбираем URL на компоненты
+    logging.info("Разбираем URL на компоненты. Результат: %s", parsed_url)
     # Убираем лишние пробелы и приводим домен к нижнему регистру
     netloc = parsed_url.netloc.strip().lower()  
     # Формируем нормализованный URL из разобранных компонентов
-    normalized_url = urlunparse((parsed_url.scheme, netloc, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment))
+    normalized_url = urlunparse((parsed_url.scheme, netloc, "", "", "", ""))
+    logging.info("Normalize_url: %s", normalized_url)
     if normalized_url.endswith('/'):
         normalized_url = normalized_url[:-1]
     return normalized_url  # Возвращаем нормализованный URL
