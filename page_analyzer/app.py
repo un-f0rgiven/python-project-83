@@ -79,7 +79,7 @@ def home():
                             return redirect(url_for('show_url', url_id=url_id))  # Перенаправляем на страницу нового URL
                 
             except psycopg2.IntegrityError:
-                flash('Этот URL уже существует в базе данных!', 'warning')  # Сообщение о дубликате
+                flash('Страница уже существует', 'warning')  # Сообщение о дубликате
             except Exception as e:
                 flash('Ошибка добавления URL. Попробуйте снова.', 'danger')  # Ошибка добавления URL
         else:
