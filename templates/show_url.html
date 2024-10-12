@@ -18,7 +18,17 @@
         </div>
     </nav>
 </header>
-
+    {% with messages = flashed_messages %}
+    {% if messages %}
+        <div class="flashes">
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    {% endwith %}
 <main class="flex-grow-1">
     <div class="container-lg mt-3">
         <h1>Сайт: {{ url_name }}</h1>
@@ -70,9 +80,7 @@
                     <td>{{ check[5] }}</td>  <!-- Дата создания -->
                 </tr>
                 {% else %}
-                <tr>
-                    <td colspan="6" class="text-center">Нет проверок для этого URL.</td>
-                </tr>
+
                 {% endfor %}
                 </tbody>
             </table>

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request, flash  # Импортируем необходимые модули из Flask
+from flask import Flask, render_template, redirect, url_for, request, flash, get_flashed_messages  # Импортируем необходимые модули из Flask
 import os  # Для работы с операционной системой
 import psycopg2  # Для подключения к PostgreSQL
 import logging  # Для логирования
@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup # Для парсинга HTML
 load_dotenv()
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO)  # Устанавливаем уровень логирования на INFO
+logging.basicConfig(level=logging.DEBUG)  # Устанавливаем уровень логирования на INFO
 
 # Создание экземпляра Flask приложения
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), '..', 'templates'))
@@ -37,6 +37,8 @@ def normalize_url(url):
     netloc = parsed_url.netloc.strip().lower()  
     # Формируем нормализованный URL из разобранных компонентов
     normalized_url = urlunparse((parsed_url.scheme, netloc, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment))
+    if normalized_url.endswith('/'):
+        normalized_url = normalized_url[:-1]
     return normalized_url  # Возвращаем нормализованный URL
 
 # Функция для валидации URL
@@ -49,37 +51,42 @@ def is_valid_url(url):
 # Обработчик для главной страницы, добавления URL
 @app.route('/', methods=['GET', 'POST'])
 def home():
-    error_message = None  # Переменная для хранения сообщения об ошибке
     if request.method == 'POST':  # Если метод запроса POST
         url = request.form.get('url')  # Получаем URL из формы
+        logging.info("Пользователь ввёл URL: %s", url)
         if is_valid_url(url):  # Проверяем валидность URL
             normalized_url = normalize_url(url)  # Нормализуем URL
             try:
                 # Устанавливаем соединение с базой данных
                 with get_db_connection() as conn:
                     with conn.cursor() as cursor:
-                        # Выполняем вставку URL в базу данных с обработкой дубликатов
+                        # Выполняем вставку URL в базу данных с обработкой дубликатов                    
                         cursor.execute("INSERT INTO urls (name) VALUES (%s) ON CONFLICT (name) DO NOTHING RETURNING id", (normalized_url,))
                         url_id = cursor.fetchone()[0] if cursor.rowcount > 0 else None  # Получаем ID вставленного URL
-                conn.commit()  # Сохраняем изменения в базе данных
-                if url_id:  # Если URL был успешно добавлен
-                    flash('URL успешно добавлен!', 'success')  # Сообщение об успешном добавлении
-                    return redirect(url_for('show_url', url_id=url_id))  # Перенаправляем на страницу нового URL
-                else:
-                    flash('Этот URL уже существует!', 'info')  # Сообщение о существующем URL
-                    cursor.execute("SELECT id FROM urls WHERE name = %s", (normalized_url,))  # Извлекаем ID существующего URL
-                    existing_url = cursor.fetchone()  # Получаем существующий URL
-                    return redirect(url_for('show_url', url_id=existing_url[0]))  # Перенаправляем на его страницу
+                        logging.info('Запрос выполнен: INSERT INTO urls (name) VALUES (%s); Результат: %s', normalized_url, url_id)
+                        conn.commit()  # Сохраняем изменения в базе данных
+                        if url_id is None:  # Если URL был успешно добавлен
+                            logging.info('url_id is %s', url_id)
+                            cursor.execute("SELECT id FROM urls WHERE name = %s", (normalized_url,))  # Извлекаем ID существующего URL
+                            logging.info('Запрос выполнен: SELECT id FROM urls WHERE name = %s;', normalized_url)
+                            existing_url = cursor.fetchone()  # Получаем существующий URL
+
+                            if existing_url:
+                                flash('Страница уже существует', 'info')  # Сообщение о существующем URL
+                                return redirect(url_for('show_url', url_id=existing_url[0]))  # Перенаправляем на его страницу
+                        else:
+                            flash('Страница успешно добавлена', 'success')  # Сообщение об успешном добавлении
+                            return redirect(url_for('show_url', url_id=url_id))  # Перенаправляем на страницу нового URL
                 
             except psycopg2.IntegrityError:
                 flash('Этот URL уже существует в базе данных!', 'warning')  # Сообщение о дубликате
             except Exception as e:
                 flash('Ошибка добавления URL. Попробуйте снова.', 'danger')  # Ошибка добавления URL
         else:
-            flash('Некорректный URL. Пожалуйста, введите действительный адрес URL.', 'danger')  # Ошибка валидации URL
+            flash('Некорректный URL', 'danger')  # Ошибка валидации URL
 
     # Возвращаем шаблон для GET-запроса или в случае ошибки
-    return render_template('index.html', error_message=error_message)
+    return render_template('index.html')
 
 
 @app.route('/urls/<int:url_id>')  # Обработчик для отображения конкретного URL
@@ -92,6 +99,8 @@ def show_url(url_id):
                 cursor.execute("SELECT id, name, created_at FROM urls WHERE id = %s", (url_id,))
                 url_data = cursor.fetchone()  # Получаем данные о URL
 
+                flashed_messages = get_flashed_messages(with_categories=True)
+
                 if url_data is None:  # Если URL не найден
                     flash('URL не найден.', 'danger')  # Сообщение об ошибке
                     return redirect(url_for('home'))  # Перенаправление на главную страницу
@@ -101,7 +110,7 @@ def show_url(url_id):
                 checks = cursor.fetchall()  # Получаем все проверки
 
                 # Передаем найденные данные и проверки в шаблон
-                return render_template('show_url.html', url_id=url_data[0], url_name=url_data[1], created_at=url_data[2], checks=checks)  
+                return render_template('show_url.html', url_id=url_data[0], url_name=url_data[1], created_at=url_data[2], checks=checks, flashed_messages=flashed_messages)  
     except Exception as e:
         logging.exception("Ошибка при получении URL.")  # Логируем исключение
         flash('Ошибка при получении URL. Попробуйте снова.', 'danger')  # Сообщение об ошибке
@@ -115,12 +124,12 @@ def list_urls():
             with conn.cursor() as cursor:
                 # Извлекаем все URL, включая дату последней проверки
                 cursor.execute(""" 
-                    SELECT u.id, u.name, 
+                    SELECT u.id, u.name, uc.status_code,
                            MAX(uc.created_at) AS last_check_date
                     FROM urls u
                     LEFT JOIN url_checks uc ON u.id = uc.url_id
-                    GROUP BY u.id, u.name
-                    ORDER BY u.created_at DESC
+                    GROUP BY u.id, u.name, uc.status_code
+                    ORDER BY last_check_date DESC
                 """)
                 urls = cursor.fetchall()  # Получаем все записи
 
@@ -179,15 +188,15 @@ def create_check(url_id):
                 )
                 conn.commit()  # Сохраняем изменения в базе данных
 
-        flash('Проверка прошла успешно!', 'success')  # Сообщение об успешном завершении проверки
+        flash('Страница успешно проверена', 'success')  # Сообщение об успешном завершении проверки
     except requests.exceptions.RequestException as e:
         # Обработка ошибок, возникающих при выполнении запроса
         logging.exception("Ошибка при проверке URL.")  # Логируем исключение
-        flash('Произошла ошибка при проверке.', 'danger')  # Сообщение об ошибке
+        flash('Произошла ошибка при проверке', 'danger')  # Сообщение об ошибке
     except Exception as e:
         # Обработка других ошибок, например, ошибок базы данных
         logging.exception("Ошибка при записи в базу данных: %s", str(e))  # Логируем исключение
-        flash('Произошла ошибка при проверке.', 'danger')  # Сообщение об ошибке
+        flash('Произошла ошибка при проверке', 'danger')  # Сообщение об ошибке
 
     return redirect(url_for('show_url', url_id=url_id))  # Перенаправление на страницу URL после завершения
 

@@ -9,7 +9,7 @@
     <title>Анализатор страниц</title>
   </head>
   <body class="min-vh-100 d-flex flex-column">
-  <header class="flex-shrink-0">
+<header class="flex-shrink-0">
     <nav class="navbar navbar-expand-md navbar-dark bg-dark px-3">
   <a class="navbar-brand" href="/">Анализатор страниц</a>
   <div id="navbarNav">
@@ -18,32 +18,21 @@
       </ul>
   </div>
 </nav>
-
-  </header>
-  
-  
-
+</header>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+      <div class="flashes">
+          {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">
+                  {{ message }}
+              </div>
+          {% endfor %}
+      </div>
+  {% endif %}
+  {% endwith %}
   <main class="flex-grow-1">
     <div class="container-lg mt-3">
-      <h1></h1>
-
-        <!-- Отображение flash-сообщений -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <!-- Отображение сообщения об ошибке -->
-        {% if error_message %}
-            <div class="alert alert-danger">
-                {{ error_message }}
-            </div>
-        {% endif %}
+      <h1></h1>    
     
 <div class="row">
   <div class="col-12 col-md-10 col-lg-8 mx-auto border rounded-3 bg-light p-5">

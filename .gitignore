@@ -2,3 +2,4 @@
 page_analyzer/__pycache__/
 *.pyc
 test.*
+app.log

@@ -4,6 +4,12 @@ install:
 dev:
 	poetry run flask --app page_analyzer:app run
 
+sql:
+	poetry run python page_analyzer/make_sql.py
+
+test:
+	pytest
+
 lint:
 	poetry run flake8
 
