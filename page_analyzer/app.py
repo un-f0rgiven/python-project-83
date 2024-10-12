@@ -8,6 +8,7 @@ import requests  # Для выполнения HTTP-запросов
 from urllib.parse import urlparse, urlunparse  # Для разбора и сборки URL
 from dotenv import load_dotenv  # Для загрузки переменных окружения из файла .env
 from datetime import date  # Для работы с датами
+from bs4 import BeautifulSoup # Для парсинга HTML
 
 # Загрузка переменных окружения из файла .env
 load_dotenv()
@@ -158,14 +159,23 @@ def create_check(url_id):
         response.raise_for_status()  # Проверяем наличие ошибок HTTP
         status_code = response.status_code  # Получаем статус-код ответа
 
+        # Парсинг HTML-страницы
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Извлечение содержимого тегов
+        h1_content = soup.find('h1').get_text() if soup.find('h1') else ''
+        title_content = soup.title.string if soup.title else ''
+        description_content = soup.find('meta', attrs={'name': 'description'})
+        description_content = description_content['content'] if description_content else ''
+
         # Записываем код ответа и текущее время в базу данных
         created_at = date.today()  # Получаем текущее время для поля created_at
         with get_db_connection() as conn:  # Устанавливаем соединение с базой данных
             with conn.cursor() as cursor:  # Создаем курсор для выполнения запросов
                 # Выполняем запрос для вставки данных о проверке в таблицу url_checks
                 cursor.execute(
-                    "INSERT INTO url_checks (url_id, status_code, created_at) VALUES (%s, %s, %s)",
-                    (url_id, status_code, created_at)
+                    "INSERT INTO url_checks (url_id, status_code, h1, title, description, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
+                    (url_id, status_code, h1_content,title_content, description_content, created_at)
                 )
                 conn.commit()  # Сохраняем изменения в базе данных
 
