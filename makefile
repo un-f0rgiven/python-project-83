@@ -7,9 +7,6 @@ dev:
 sql:
 	poetry run python page_analyzer/make_sql.py
 
-test:
-	pytest
-
 lint:
 	poetry run flake8
 
