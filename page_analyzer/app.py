@@ -119,8 +119,7 @@ def manage_urls():
                 flash('Ошибка добавления URL. Попробуйте снова.', 'danger')
         else:
             flash('Некорректный URL', 'danger')
-
-        return redirect(url_for('home', url=url))  # Перенаправляем на главную страницу
+            return redirect(url_for('home', url=url))
 
     # Обработка GET-запроса для отображения списка URL
     try:
