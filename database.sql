@@ -3,8 +3,8 @@ DROP TABLE IF EXISTS urls;
 
 CREATE TABLE urls (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL UNIQUE,  -- Добавлено UNIQUE
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    name VARCHAR(255) NOT NULL UNIQUE,
+    created_at DATE DEFAULT CURRENT_DATE
 );
 
 CREATE TABLE url_checks (
@@ -14,6 +14,6 @@ CREATE TABLE url_checks (
     h1 TEXT,
     title TEXT,
     description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at DATE DEFAULT CURRENT_DATE,
     FOREIGN KEY (url_id) REFERENCES urls(id) ON DELETE CASCADE
 );
