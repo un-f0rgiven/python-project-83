@@ -50,46 +50,11 @@ def is_valid_url(url):
         return False
     return validators.url(url)  # Используем validators для проверки валидности URL
 
-# Обработчик для главной страницы, добавления URL
 @app.route('/', methods=['GET', 'POST'])
 def home():
-    if request.method == 'POST':  # Если метод запроса POST
-        url = request.form.get('url')  # Получаем URL из формы
-        logging.info("Пользователь ввёл URL: %s", url)
-        if is_valid_url(url):  # Проверяем валидность URL
-            normalized_url = normalize_url(url)  # Нормализуем URL
-            logging.info('Normalize URL: %s', normalized_url)
-            try:
-                # Устанавливаем соединение с базой данных
-                with get_db_connection() as conn:
-                    with conn.cursor() as cursor:
-                        # Выполняем вставку URL в базу данных с обработкой дубликатов                    
-                        cursor.execute("INSERT INTO urls (name) VALUES (%s) ON CONFLICT (name) DO NOTHING RETURNING id", (normalized_url,))
-                        url_id = cursor.fetchone()[0] if cursor.rowcount > 0 else None  # Получаем ID вставленного URL
-                        logging.info('Запрос выполнен: INSERT INTO urls (name) VALUES (%s); Результат: %s', normalized_url, url_id)
-                        conn.commit()  # Сохраняем изменения в базе данных
-                        if url_id is None:  # Если URL был успешно добавлен
-                            logging.info('url_id is %s', url_id)
-                            cursor.execute("SELECT id FROM urls WHERE name = %s", (normalized_url,))  # Извлекаем ID существующего URL
-                            logging.info('Запрос выполнен: SELECT id FROM urls WHERE name = %s;', normalized_url)
-                            existing_url = cursor.fetchone()  # Получаем существующий URL
-
-                            if existing_url:
-                                flash('Страница уже существует', 'info')  # Сообщение о существующем URL
-                                return redirect(url_for('show_url', url_id=existing_url[0]))  # Перенаправляем на его страницу
-                        else:
-                            flash('Страница успешно добавлена', 'success')  # Сообщение об успешном добавлении
-                            return redirect(url_for('show_url', url_id=url_id))  # Перенаправляем на страницу нового URL
-            except psycopg2.IntegrityError:
-                flash('Страница уже существует', 'warning')  # Сообщение о дубликате
-            except Exception as e:
-                flash('Ошибка добавления URL. Попробуйте снова.', 'danger')  # Ошибка добавления URL
-        else:
-            flash('Некорректный URL', 'danger')  # Ошибка валидации URL
-        # Возвращаем на ту же страницу с сообщением об ошибке
-            logging.info('URL: %s', url)
-        return render_template('index.html', url=url)  # Отправляем обратно на форму для ввода URL
-
+    if request.method == 'POST':
+        # Перенаправление на /urls для добавления нового URL
+        return redirect(url_for('manage_urls'))  # Перенаправление на обработчик /urls
 
     # Возвращаем шаблон для GET-запроса
     return render_template('index.html')
@@ -122,13 +87,45 @@ def show_url(url_id):
         flash('Ошибка при получении URL. Попробуйте снова.', 'danger')  # Сообщение об ошибке
         return redirect(url_for('home'))  # Перенаправление на главную страницу
 
-@app.route('/urls')  # Обработчик для отображения списка всех URL
-def list_urls():
+@app.route('/urls', methods=['GET', 'POST'])
+def manage_urls():
+    if request.method == 'POST':
+        # Обработка POST-запроса для добавления нового URL
+        url = request.form.get('url')
+        logging.info("Пользователь ввёл URL: %s", url)
+        
+        if is_valid_url(url):  # Проверка валидности URL
+            normalized_url = normalize_url(url)
+            logging.info('Normalize URL: %s', normalized_url)
+            try:
+                with get_db_connection() as conn:
+                    with conn.cursor() as cursor:
+                        cursor.execute("INSERT INTO urls (name) VALUES (%s) ON CONFLICT (name) DO NOTHING RETURNING id", (normalized_url,))
+                        url_id = cursor.fetchone()[0] if cursor.rowcount > 0 else None
+                        logging.info('Запрос выполнен: INSERT INTO urls (name) VALUES (%s); Результат: %s', normalized_url, url_id)
+                        conn.commit()
+                        if url_id is None:
+                            cursor.execute("SELECT id FROM urls WHERE name = %s", (normalized_url,))
+                            existing_url = cursor.fetchone()
+                            if existing_url:
+                                flash('Страница уже существует', 'info')
+                                return redirect(url_for('show_url', url_id=existing_url[0]))
+                        else:
+                            flash('Страница успешно добавлена', 'success')
+                            return redirect(url_for('show_url', url_id=url_id))
+            except psycopg2.IntegrityError:
+                flash('Страница уже существует', 'warning')
+            except Exception as e:
+                flash('Ошибка добавления URL. Попробуйте снова.', 'danger')
+        else:
+            flash('Некорректный URL', 'danger')
+
+        return redirect(url_for('home', url=url))  # Перенаправляем на главную страницу
+
+    # Обработка GET-запроса для отображения списка URL
     try:
-        # Устанавливаем соединение с базой данных
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
-                # Извлекаем все URL, включая дату последней проверки
                 cursor.execute(""" 
                     SELECT u.id, u.name, uc.status_code,
                            MAX(uc.created_at) AS last_check_date
@@ -139,11 +136,10 @@ def list_urls():
                 """)
                 urls = cursor.fetchall()  # Получаем все записи
 
-                # Передаем записи в шаблон
-                return render_template('list_urls.html', urls=urls)  
+                return render_template('list_urls.html', urls=urls)  # Передаем записи в шаблон
     except Exception as e:
-        logging.exception("Ошибка при получении списка URL.")  # Логируем исключение
-        flash('Ошибка при получении списка URL. Попробуйте снова.', 'danger')  # Сообщение об ошибке
+        logging.exception("Ошибка при получении списка URL.")
+        flash('Ошибка при получении списка URL. Попробуйте снова.', 'danger')
         return redirect(url_for('home'))  # Перенаправление на главную страницу
 
 
