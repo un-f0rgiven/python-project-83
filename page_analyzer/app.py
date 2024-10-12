@@ -88,6 +88,8 @@ def home():
             flash('Некорректный URL', 'danger')  # Ошибка валидации URL
 
     # Возвращаем шаблон для GET-запроса или в случае ошибки
+        return render_template('index.html', url=url)
+    
     return render_template('index.html')
 
 
