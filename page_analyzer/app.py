@@ -58,6 +58,7 @@ def home():
         logging.info("Пользователь ввёл URL: %s", url)
         if is_valid_url(url):  # Проверяем валидность URL
             normalized_url = normalize_url(url)  # Нормализуем URL
+            logging.info('Normalize URL: %s', normalized_url)
             try:
                 # Устанавливаем соединение с базой данных
                 with get_db_connection() as conn:
@@ -79,17 +80,18 @@ def home():
                         else:
                             flash('Страница успешно добавлена', 'success')  # Сообщение об успешном добавлении
                             return redirect(url_for('show_url', url_id=url_id))  # Перенаправляем на страницу нового URL
-                
             except psycopg2.IntegrityError:
                 flash('Страница уже существует', 'warning')  # Сообщение о дубликате
             except Exception as e:
                 flash('Ошибка добавления URL. Попробуйте снова.', 'danger')  # Ошибка добавления URL
         else:
             flash('Некорректный URL', 'danger')  # Ошибка валидации URL
+        # Возвращаем на ту же страницу с сообщением об ошибке
+            logging.info('URL: %s', url)
+        return render_template('index.html', url=url)  # Отправляем обратно на форму для ввода URL
 
-    # Возвращаем шаблон для GET-запроса или в случае ошибки
-        return render_template('index.html', url=url)
-    
+
+    # Возвращаем шаблон для GET-запроса
     return render_template('index.html')
 
 
