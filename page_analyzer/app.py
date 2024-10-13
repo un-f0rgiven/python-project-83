@@ -131,49 +131,64 @@ def show_url(url_id):
 @app.route('/urls', methods=['GET', 'POST'])
 def manage_urls():
     if request.method == 'POST':
-        # Обработка POST-запроса для добавления нового URL
-        url = request.form.get('url')
-        if is_valid_url(url):  # Проверка валидности URL
-            normalized_url = normalize_url(url)
-            try:
-                with get_db_connection() as conn:
-                    with conn.cursor() as cursor:
-                        cursor.execute(
-                            "INSERT INTO urls (name) VALUES (%s) "
-                            "ON CONFLICT (name) DO NOTHING RETURNING id",
-                            (normalized_url,)
-                        )
-                        url_id = (
-                            cursor.fetchone()[0]
-                            if cursor.rowcount > 0
-                            else None
-                        )
-                        conn.commit()
-                        if url_id is None:
-                            cursor.execute(
-                                "SELECT id FROM urls WHERE name = %s",
-                                (normalized_url,)
-                            )
-                            existing_url = cursor.fetchone()
-                            if existing_url:
-                                flash('Страница уже существует', 'info')
-                                return redirect(
-                                    url_for(
-                                        'show_url',
-                                        url_id=existing_url[0]
-                                    )
-                                )
-                        else:
-                            flash('Страница успешно добавлена', 'success')
-                            return redirect(url_for('show_url', url_id=url_id))
-            except psycopg2.IntegrityError:
-                flash('Страница уже существует', 'warning')
-            except Exception:
-                flash('Ошибка добавления URL. Попробуйте снова.', 'danger')
-        else:
-            flash('Некорректный URL', 'danger')
-            return render_template('index.html', url=url), 422
+        return handle_post_request()
+    else:
+        return handle_get_request()
 
+
+def handle_post_request():
+    # Обработка POST-запроса для добавления нового URL
+    url = request.form.get('url')
+
+    if not is_valid_url(url):
+        flash('Некорректный URL', 'danger')
+        return render_template('index.html', url=url), 422
+
+    normalized_url = normalize_url(url)
+
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                url_id = insert_url(cursor, normalized_url)
+                conn.commit()
+                return handle_url_response(cursor, url_id, normalized_url)
+    except psycopg2.IntegrityError:
+        flash('Страница уже существует', 'warning')
+    except Exception:
+        flash('Ошибка добавления URL. Попробуйте снова.', 'danger')
+
+    return render_template('index.html', url=url), 422
+
+
+def insert_url(cursor, normalized_url):
+    cursor.execute(
+        "INSERT INTO urls (name) VALUES (%s) "
+        "ON CONFLICT (name) DO NOTHING RETURNING id",
+        (normalized_url,)
+    )
+    return cursor.fetchone()[0] if cursor.rowcount > 0 else None
+
+
+def handle_url_response(cursor, url_id, normalized_url):
+    if url_id is None:
+        existing_url = fetch_existing_url(cursor, normalized_url)
+        if existing_url:
+            flash('Страница уже существует', 'info')
+            return redirect(url_for('show_url', url_id=existing_url[0]))
+    else:
+        flash('Страница успешно добавлена', 'success')
+        return redirect(url_for('show_url', url_id=url_id))
+
+
+def fetch_existing_url(cursor, normalized_url):
+    cursor.execute(
+        "SELECT id FROM urls WHERE name = %s",
+        (normalized_url,)
+    )
+    return cursor.fetchone()
+
+
+def handle_get_request():
     # Обработка GET-запроса для отображения списка URL
     try:
         with get_db_connection() as conn:
@@ -187,7 +202,6 @@ def manage_urls():
                     ORDER BY last_check_date DESC
                 """)
                 urls = cursor.fetchall()  # Получаем все записи
-
                 return render_template('list_urls.html', urls=urls)
                 # Передаем записи в шаблон
     except Exception:
