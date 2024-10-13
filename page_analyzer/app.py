@@ -48,6 +48,8 @@ def is_valid_url(url):
     # Проверяем, не превышает ли длина URL 255 символов
     if len(url) > 255:
         return False
+    elif validators.url(url) is False:
+        return jsonify({"error": "Некорректный URL"}), 422
     return validators.url(url)  # Используем validators для проверки валидности URL
 
 @app.route('/', methods=['GET', 'POST'])
@@ -118,9 +120,9 @@ def manage_urls():
             except Exception as e:
                 flash('Ошибка добавления URL. Попробуйте снова.', 'danger')
         else:
-        #     flash('Некорректный URL', 'danger')
-        # return redirect(url_for('home', url=url))
-            return jsonify({"error": "Некорректный URL"}), 422
+            flash('Некорректный URL', 'danger')
+            return redirect(url_for('home', url=url))
+
 
     # Обработка GET-запроса для отображения списка URL
     try:
