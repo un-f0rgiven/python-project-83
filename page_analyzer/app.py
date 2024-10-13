@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request, flash, get_flashed_messages, jsonify  # Импортируем необходимые модули из Flask
+from flask import Flask, render_template, redirect, url_for, request, flash, get_flashed_messages, jsonify, make_response  # Импортируем необходимые модули из Flask
 import os  # Для работы с операционной системой
 import psycopg2  # Для подключения к PostgreSQL
 import logging  # Для логирования
@@ -48,8 +48,6 @@ def is_valid_url(url):
     # Проверяем, не превышает ли длина URL 255 символов
     if len(url) > 255:
         return False
-    elif validators.url(url) is False:
-        return jsonify({"error": "Некорректный URL"}), 422
     return validators.url(url)  # Используем validators для проверки валидности URL
 
 @app.route('/', methods=['GET', 'POST'])
@@ -94,17 +92,13 @@ def manage_urls():
     if request.method == 'POST':
         # Обработка POST-запроса для добавления нового URL
         url = request.form.get('url')
-        logging.info("Пользователь ввёл URL: %s", url)
-        
         if is_valid_url(url):  # Проверка валидности URL
             normalized_url = normalize_url(url)
-            logging.info('Normalize URL: %s', normalized_url)
             try:
                 with get_db_connection() as conn:
                     with conn.cursor() as cursor:
                         cursor.execute("INSERT INTO urls (name) VALUES (%s) ON CONFLICT (name) DO NOTHING RETURNING id", (normalized_url,))
                         url_id = cursor.fetchone()[0] if cursor.rowcount > 0 else None
-                        logging.info('Запрос выполнен: INSERT INTO urls (name) VALUES (%s); Результат: %s', normalized_url, url_id)
                         conn.commit()
                         if url_id is None:
                             cursor.execute("SELECT id FROM urls WHERE name = %s", (normalized_url,))
@@ -121,8 +115,7 @@ def manage_urls():
                 flash('Ошибка добавления URL. Попробуйте снова.', 'danger')
         else:
             flash('Некорректный URL', 'danger')
-            return redirect(url_for('home', url=url))
-
+            return render_template('index.html', url=url), 422
 
     # Обработка GET-запроса для отображения списка URL
     try:
@@ -140,7 +133,6 @@ def manage_urls():
 
                 return render_template('list_urls.html', urls=urls)  # Передаем записи в шаблон
     except Exception as e:
-        logging.exception("Ошибка при получении списка URL.")
         flash('Ошибка при получении списка URL. Попробуйте снова.', 'danger')
         return redirect(url_for('home'))  # Перенаправление на главную страницу
 
