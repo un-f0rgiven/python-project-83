@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, request, flash, get_flashed_messages  # Импортируем необходимые модули из Flask
+from flask import Flask, render_template, redirect, url_for, request, flash, get_flashed_messages, jsonify  # Импортируем необходимые модули из Flask
 import os  # Для работы с операционной системой
 import psycopg2  # Для подключения к PostgreSQL
 import logging  # Для логирования
@@ -118,8 +118,9 @@ def manage_urls():
             except Exception as e:
                 flash('Ошибка добавления URL. Попробуйте снова.', 'danger')
         else:
-            flash('Некорректный URL', 'danger')
-            return redirect(url_for('home', url=url))
+        #     flash('Некорректный URL', 'danger')
+        # return redirect(url_for('home', url=url))
+            return jsonify({"error": "Некорректный URL"}), 422
 
     # Обработка GET-запроса для отображения списка URL
     try:
