@@ -1,17 +1,17 @@
 import os
-# Импортируем модуль os для работы с операционной системой, в частности для работы с переменными окружения
-
-from dotenv import load_dotenv  # Импортируем функцию load_dotenv из модуля dotenv для загрузки переменных окружения из файла .env
-
-import psycopg2  # Импортируем библиотеку psycopg2 для подключения и работы с базой данных PostgreSQL
+# Для работы с операционной системой
+from dotenv import load_dotenv
+# Для загрузки переменных окружения из файла .env
+import psycopg2
+# Для подключения и работы с базой данных PostgreSQL
 
 # Загружаем переменные окружения из файла .env
 load_dotenv()
-# Вызываем функцию load_dotenv, чтобы загрузить переменные окружения из файла .env, если он существует
+
 
 # Функция для подключения к базе данных
 def get_db_connection():
-    # Определяем функцию get_db_connection для установки соединения с базой данных
+    # Определяем функцию для установки соединения с базой данных
     try:
         # Начинаем блок try для обработки возможных исключений
         database_url = os.getenv('DATABASE_URL')
@@ -27,6 +27,7 @@ def get_db_connection():
         raise
         # Поднимаем исключение выше, чтобы его можно было обработать позже
 
+
 # Функция для выполнения SQL-скрипта из файла
 def execute_sql_file(filename):
     # Определяем функцию execute_sql_file, которая принимает имя файла SQL
@@ -37,7 +38,7 @@ def execute_sql_file(filename):
 
     # Подключаемся к базе данных и выполняем скрипт
     with get_db_connection() as conn:
-        # Устанавливаем соединение с базой данных, используя контекстный менеджер
+        # Устанавливаем соединение с базой данных
         with conn.cursor() as cursor:
             # Создаем курсор для выполнения SQL-запросов
             cursor.execute(sql_script)
@@ -45,8 +46,11 @@ def execute_sql_file(filename):
             conn.commit()
             # Фиксируем изменения в базе данных
 
+
 # Проверяем, что данный файл выполняется как основная программа
 if __name__ == '__main__':
     # Если этот файл запущен как основной модуль
-    execute_sql_file('/mnt/c/Users/Александр/Projects/python-project-83/database.sql')
+    execute_sql_file(
+        '/mnt/c/Users/Александр/Projects/python-project-83/database.sql'
+    )
     # Вызываем функцию execute_sql_file с указанием пути к SQL-файлу
