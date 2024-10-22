@@ -4,3 +4,4 @@ page_analyzer/__pycache__/
 test.*
 app.log
 *.whl
+generate_key.py
