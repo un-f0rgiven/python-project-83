@@ -5,3 +5,4 @@ test.*
 app.log
 *.whl
 generate_key.py
+/dist

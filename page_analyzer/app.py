@@ -12,8 +12,8 @@ import requests
 from dotenv import load_dotenv
 from datetime import date
 from bs4 import BeautifulSoup
-from check_urls import is_valid_url, normalize_url
-from requests import fetch_url
+from page_analyzer.check_urls import is_valid_url, normalize_url
+from page_analyzer.requests import fetch_url
 
 
 load_dotenv()
@@ -21,6 +21,7 @@ load_dotenv()
 logging.basicConfig(level=logging.DEBUG)
 
 app = Flask(__name__)
+
 app.secret_key = os.getenv('SECRET_KEY')
 app.config['DEBUG'] = True
 
@@ -99,7 +100,7 @@ def handle_get_request():
             return render_template('list_urls.html', urls=urls)
 
 
-@app.post('urls')
+@app.post('/urls')
 def handle_post_request():
     url = request.form.get('url')
 
