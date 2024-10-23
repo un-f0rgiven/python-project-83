@@ -115,12 +115,15 @@ def handle_post_request():
             with conn.cursor() as cursor:
                 url_id = insert_url(cursor, normalized_url)
 
-                if url_id is False:
+                if url_id is None:
+                    existing_url_data = exist_url(cursor, normalized_url)
                     flash('Страница уже существует', 'info')
-                    return redirect(url_for('show_url.html', url_id=url_id))
+                    return redirect(url_for('show_url', url_id=existing_url_data[0]))
 
                 conn.commit()
-                return handle_url_response(cursor, url_id, normalized_url)
+                flash('Страница успешно добавлена', 'success')
+                return redirect(url_for('show_url', url_id=url_id))
+
 
     except Exception:
         flash('Ошибка добавления URL. Попробуйте снова.', 'danger')
@@ -137,7 +140,7 @@ def insert_url(cursor, normalized_url):
     result = cursor.fetchone()
 
     if result:
-        return False
+        return None
 
     cursor.execute(
         "INSERT INTO urls (name) VALUES (%s) RETURNING id",
@@ -146,19 +149,9 @@ def insert_url(cursor, normalized_url):
     return cursor.fetchone()[0]
 
 
-def handle_url_response(cursor, url_id, normalized_url):
-    if url_id is None:
-        cursor.execute(
-            "SELECT id FROM urls WHERE name = %s",
-            (normalized_url,)
-        )
-        existing_url = cursor.fetchone()
-        if existing_url:
-            flash('Страница уже существует', 'info')
-            return redirect(url_for('show_url', url_id=existing_url[0]))
-
-    flash('Страница успешно добавлена', 'success')
-    return redirect(url_for('show_url', url_id=url_id))
+def exist_url(cursor, normalized_url):
+    cursor.execute("SELECT id FROM urls WHERE name = %s", (normalized_url,))
+    return cursor.fetchone()
 
 
 @app.route('/urls/<int:url_id>/checks', methods=['POST'])
