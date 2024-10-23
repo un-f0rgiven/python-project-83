@@ -118,12 +118,13 @@ def handle_post_request():
                 if url_id is None:
                     existing_url_data = exist_url(cursor, normalized_url)
                     flash('Страница уже существует', 'info')
-                    return redirect(url_for('show_url', url_id=existing_url_data[0]))
+                    return redirect(
+                        url_for('show_url', url_id=existing_url_data[0])
+                    )
 
                 conn.commit()
                 flash('Страница успешно добавлена', 'success')
                 return redirect(url_for('show_url', url_id=url_id))
-
 
     except Exception:
         flash('Ошибка добавления URL. Попробуйте снова.', 'danger')
@@ -210,13 +211,10 @@ def parse_html(html):
     return h1_content, title_content, description_content
 
 
-
 def get_url_name(cursor, url_id):
     cursor.execute("SELECT name FROM urls WHERE id = %s", (url_id,))
     return cursor.fetchone()
 
-
-import logging
 
 def insert_check(
         cursor,
