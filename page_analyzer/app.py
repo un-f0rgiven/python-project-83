@@ -116,8 +116,8 @@ def handle_post_request():
                 url_id = insert_url(cursor, normalized_url)
 
                 if url_id is False:
-                    flash('Страница уже существует', 'warning')
-                    return render_template('index.html', url=url), 422
+                    flash('Страница уже существует', 'info')
+                    return redirect(url_for('show_url.html', url_id=url_id))
 
                 conn.commit()
                 return handle_url_response(cursor, url_id, normalized_url)

@@ -4,6 +4,9 @@ install:
 dev:
 	poetry run flask --app page_analyzer:app run
 
+debug:
+	poetry run flask --app page_analyzer:app run --debug
+
 sql:
 	poetry run python page_analyzer/make_sql.py
 

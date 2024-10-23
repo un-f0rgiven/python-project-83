@@ -24,8 +24,8 @@
                         {{ url[1] }}
                     </a>
                 </td>
-                <td>{{ url[3] | default('Нет проверок') }}</td>  <!-- Дата последней проверки -->
-                <td>{{ url[2] | default('Нет данных') }}</td>  <!-- Код ответа -->
+                <td>{% if url[3] is not none %}{{ url[3] }}{% endif %}</td>
+                <td>{% if url[2] is not none %}{{ url[2] }}{% endif %}</td>
             </tr>
             {% endfor %}
             </tbody>
