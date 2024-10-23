@@ -165,3 +165,18 @@ def parse_html(html):
     )
 
     return h1_content, title_content, description_content
+
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    return render_template('500.html'), 500
+
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html'), 404
+
+
+# @app.route('/error-500')
+# def cause_error_500():
+#     raise Exception("This is a test exception to trigger a 500 error.")
