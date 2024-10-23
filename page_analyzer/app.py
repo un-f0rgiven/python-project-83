@@ -167,27 +167,28 @@ def create_check(url_id):
 
                 url_name = url_data[0]
 
-            response = fetch_url(url_name)
-            status_code = response.status_code
+                response = fetch_url(url_name)
+                status_code = response.status_code
 
-            h1_content, title_content, description_content = parse_html(
-                response.text
-            )
+                h1_content, title_content, description_content = parse_html(
+                    response.text
+                )
 
-            created_at = date.today()
+                created_at = date.today()
 
-            insert_check(
-                conn,
-                cursor,
-                url_id,
-                status_code,
-                h1_content,
-                title_content,
-                description_content,
-                created_at
-            )
+                insert_check(
+                    cursor,
+                    url_id,
+                    status_code,
+                    h1_content,
+                    title_content,
+                    description_content,
+                    created_at
+                )
+                conn.commit()
 
         flash('Страница успешно проверена', 'success')
+
     except requests.exceptions.RequestException:
         flash('Произошла ошибка при проверке', 'danger')
     except Exception:
@@ -209,13 +210,15 @@ def parse_html(html):
     return h1_content, title_content, description_content
 
 
+
 def get_url_name(cursor, url_id):
     cursor.execute("SELECT name FROM urls WHERE id = %s", (url_id,))
     return cursor.fetchone()
 
 
+import logging
+
 def insert_check(
-        conn,
         cursor,
         url_id,
         status_code,
@@ -224,17 +227,20 @@ def insert_check(
         description_content,
         created_at
 ):
-    cursor.execute(
-        "INSERT INTO url_checks "
-        "(url_id, status_code, h1, title, description, created_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s)",
-        (
-            url_id,
-            status_code,
-            h1_content,
-            title_content,
-            description_content,
-            created_at
+    try:
+        cursor.execute(
+            "INSERT INTO url_checks "
+            "(url_id, status_code, h1, title, description, created_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s)",
+            (
+                url_id,
+                status_code,
+                h1_content,
+                title_content,
+                description_content,
+                created_at
+            )
         )
-    )
-    conn.commit()
+    except Exception as e:
+        logging.error(f"Ошибка при вставке проверки: {str(e)}")
+        raise
