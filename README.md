@@ -20,7 +20,7 @@ PostgreSQL 14>
     ```python
     import secrets
     secret_key = secrets.token_hex(32)
-    print(secret_key)  
+    print(secret_key)```  
 **- Пример использования**: SECRET_KEY='ваш_сгенерированный_секретный_ключ'  
 
 **- DATABASE_URL** - URL для подключения к базе данных. Содержит информацию о типе базы данных, имени пользователя, пароле, хосте и имени базы данных.  
