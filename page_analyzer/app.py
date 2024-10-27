@@ -8,11 +8,10 @@ from flask import (Flask,
 import os
 import psycopg2
 import logging
-import requests
 from dotenv import load_dotenv
 from datetime import date
-from bs4 import BeautifulSoup
-from page_analyzer.check_urls import is_valid_url, normalize_url
+from page_analyzer.parser import parse_html
+from page_analyzer.urls import is_valid_url, normalize_url
 from page_analyzer.requests import fetch_url
 from page_analyzer.sql_queries import (fetch_url_data,
                                        get_urls,
@@ -41,11 +40,6 @@ def get_db_connection():
 @app.route('/', methods=['GET'])
 def get_index():
     return render_template('index.html')
-
-
-@app.route('/', methods=['POST'])
-def post_index():
-    return ('Метод не разрешен', 405)
 
 
 @app.route('/urls/<int:url_id>')
@@ -88,83 +82,58 @@ def handle_post_request():
 
     normalized_url = normalize_url(url)
 
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor() as cursor:
-                url_id = insert_url(cursor, normalized_url)
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            url_id = insert_url(cursor, normalized_url)
 
-                if url_id is None:
-                    existing_url_data = exist_url(cursor, normalized_url)
-                    flash('Страница уже существует', 'info')
-                    return redirect(
-                        url_for('show_url', url_id=existing_url_data[0])
-                    )
+            if url_id is None:
+                existing_url_data = exist_url(cursor, normalized_url)
+                flash('Страница уже существует', 'info')
+                return redirect(
+                    url_for('show_url', url_id=existing_url_data[0])
+                )
 
-                conn.commit()
-                flash('Страница успешно добавлена', 'success')
-                return redirect(url_for('show_url', url_id=url_id))
-
-    except Exception:
-        flash('Ошибка добавления URL. Попробуйте снова.', 'danger')
-        return render_template('index.html', url=url), 422
+            conn.commit()
+            flash('Страница успешно добавлена', 'success')
+            return redirect(url_for('show_url', url_id=url_id))
 
     return render_template('index.html', url=url), 422
 
 
 @app.route('/urls/<int:url_id>/checks', methods=['POST'])
 def create_check(url_id):
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor() as cursor:
-                url_data = get_url_name(cursor, url_id)
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            url_data = get_url_name(cursor, url_id)
 
-                if url_data is None:
-                    flash('URL не найден.', 'danger')
-                    return redirect(url_for('list_urls'))
+            if url_data is None:
+                flash('URL не найден.', 'danger')
+                return redirect(url_for('list_urls'))
 
-                url_name = url_data[0]
+            url_name = url_data[0]
 
-                response = fetch_url(url_name)
-                status_code = response.status_code
+            response = fetch_url(url_name)
+            status_code = response.status_code
 
-                h1_content, title_content, description_content = parse_html(
-                    response.text
-                )
+            h1_content, title_content, description_content = parse_html(
+                response.text
+            )
 
-                created_at = date.today()
+            created_at = date.today()
 
-                insert_check(
-                    cursor,
-                    url_id,
-                    status_code,
-                    h1_content,
-                    title_content,
-                    description_content,
-                    created_at
-                )
-                conn.commit()
+            insert_check(
+                cursor,
+                url_id,
+                status_code,
+                h1_content,
+                title_content,
+                description_content,
+                created_at
+            )
+            conn.commit()
 
-        flash('Страница успешно проверена', 'success')
-
-    except requests.exceptions.RequestException:
-        flash('Произошла ошибка при проверке', 'danger')
-    except Exception:
-        flash('Произошла ошибка при проверке', 'danger')
-
+    flash('Страница успешно проверена', 'success')
     return redirect(url_for('show_url', url_id=url_id))
-
-
-def parse_html(html):
-    soup = BeautifulSoup(html, 'html.parser')
-
-    h1_content = soup.find('h1').get_text() if soup.find('h1') else ''
-    title_content = soup.title.string if soup.title else ''
-    description_content = soup.find('meta', attrs={'name': 'description'})
-    description_content = (
-        description_content['content'] if description_content else ''
-    )
-
-    return h1_content, title_content, description_content
 
 
 @app.errorhandler(500)
@@ -175,8 +144,3 @@ def internal_server_error(e):
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('404.html'), 404
-
-
-# @app.route('/error-500')
-# def cause_error_500():
-#     raise Exception("This is a test exception to trigger a 500 error.")
