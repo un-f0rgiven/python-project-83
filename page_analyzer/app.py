@@ -17,7 +17,7 @@ from page_analyzer.requests import fetch_url
 from page_analyzer.sql_queries import (fetch_url_data,
                                        get_urls,
                                        insert_url,
-                                       exist_url,
+                                       is_url_added,
                                        get_url_name,
                                        insert_check)
 
@@ -95,7 +95,7 @@ def handle_post_request(cursor):
     url_id = insert_url(cursor, normalized_url)
 
     if url_id is None:
-        existing_url_data = exist_url(cursor, normalized_url)
+        existing_url_data = is_url_added(cursor, normalized_url)
         flash('Страница уже существует', 'info')
         return redirect(
             url_for('show_url', url_id=existing_url_data[0])
