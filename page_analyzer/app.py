@@ -43,9 +43,9 @@ def init_cursor(func):
     def wrapper(*args, **kwargs):
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
-                return func(cursor, *args, **kwargs)
+                return func(cursor, conn, *args, **kwargs)
 
-        return wrapper
+    return wrapper
 
 
 @app.route('/', methods=['GET'])
@@ -55,7 +55,7 @@ def get_index():
 
 @app.route('/urls/<int:url_id>')
 @init_cursor
-def show_url(cursor, url_id):
+def show_url(cursor, conn, url_id):
     flashed_messages = get_flashed_messages(with_categories=True)
 
     url_data, checks = fetch_url_data(cursor, url_id)
@@ -76,7 +76,7 @@ def show_url(cursor, url_id):
 
 @app.get('/urls')
 @init_cursor
-def handle_get_request(cursor):
+def handle_get_request(cursor, conn):
     urls = get_urls(cursor)
     return render_template('list_urls.html', urls=urls)
 
@@ -108,7 +108,7 @@ def handle_post_request(cursor, conn):
 
 @app.route('/urls/<int:url_id>/checks', methods=['POST'])
 @init_cursor
-def create_check(cursor, url_id):
+def create_check(cursor, conn, url_id):
     url_data = get_url_name(cursor, url_id)
 
     if url_data is None:
@@ -135,7 +135,7 @@ def create_check(cursor, url_id):
         description_content,
         created_at
     )
-    cursor.conn.commit()
+    conn.commit()
 
     flash('Страница успешно проверена', 'success')
     return redirect(url_for('show_url', url_id=url_id))
