@@ -98,7 +98,7 @@ def handle_post_request(cursor, conn):
         existing_url_data = is_url_added(cursor, normalized_url)
         flash('Страница уже существует', 'info')
         return redirect(
-            url_for('show_url', url_id=existing_url_data[0])
+            url_for('show_url', url_id=existing_url_data)
         )
 
     conn.commit()
