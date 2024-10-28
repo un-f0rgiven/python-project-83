@@ -8,6 +8,7 @@ from flask import (Flask,
 import os
 import psycopg2
 import logging
+import requests
 from dotenv import load_dotenv
 from datetime import date
 from functools import wraps
@@ -117,8 +118,12 @@ def create_check(cursor, conn, url_id):
 
     url_name = url_data[0]
 
-    response = fetch_url(url_name)
-    status_code = response.status_code
+    try:
+        response = fetch_url(url_name)
+        status_code = response.status_code
+    except requests.exceptions.RequestException:
+        flash('Произошла ошибка при проверке', 'danger')
+        return redirect(url_for('show_url', url_id=url_id))
 
     h1_content, title_content, description_content = parse_html(
         response.text
