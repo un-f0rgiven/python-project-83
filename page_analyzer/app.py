@@ -39,7 +39,7 @@ def get_db_connection():
 
 
 def init_cursor(func):
-    @wraps
+    @wraps(func)
     def wrapper(*args, **kwargs):
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
@@ -83,7 +83,7 @@ def handle_get_request(cursor):
 
 @app.post('/urls')
 @init_cursor
-def handle_post_request(cursor):
+def handle_post_request(cursor, conn):
     url = request.form.get('url')
 
     if not is_valid_url(url):
@@ -101,7 +101,7 @@ def handle_post_request(cursor):
             url_for('show_url', url_id=existing_url_data[0])
         )
 
-    cursor.conn.commit()
+    conn.commit()
     flash('Страница успешно добавлена', 'success')
     return redirect(url_for('show_url', url_id=url_id))
 
