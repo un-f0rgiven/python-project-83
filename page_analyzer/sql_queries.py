@@ -44,13 +44,7 @@ def get_urls(cursor):
 
 
 def insert_url(cursor, normalized_url):
-    cursor.execute(
-        "SELECT id FROM urls WHERE name = %s",
-        (normalized_url,)
-    )
-    result = cursor.fetchone()
-
-    if result:
+    if is_url_added(cursor, normalized_url):
         return None
 
     cursor.execute(
@@ -60,9 +54,9 @@ def insert_url(cursor, normalized_url):
     return cursor.fetchone()[0]
 
 
-def exist_url(cursor, normalized_url):
+def is_url_added(cursor, normalized_url):
     cursor.execute("SELECT id FROM urls WHERE name = %s", (normalized_url,))
-    return cursor.fetchone()
+    return cursor.fetchone() is not None
 
 
 def get_url_name(cursor, url_id):

@@ -10,6 +10,7 @@ import psycopg2
 import logging
 from dotenv import load_dotenv
 from datetime import date
+from functools import wraps
 from page_analyzer.parser import parse_html
 from page_analyzer.urls import is_valid_url, normalize_url
 from page_analyzer.requests import fetch_url
@@ -37,43 +38,52 @@ def get_db_connection():
     return conn
 
 
+def init_cursor(func):
+    @wraps
+    def wrapper(*args, **kwargs):
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                return func(cursor, *args, **kwargs)
+
+        return wrapper
+
+
 @app.route('/', methods=['GET'])
 def get_index():
     return render_template('index.html')
 
 
 @app.route('/urls/<int:url_id>')
-def show_url(url_id):
-    with get_db_connection() as conn:
-        with conn.cursor() as cursor:
-            url_data, checks = fetch_url_data(cursor, url_id)
+@init_cursor
+def show_url(cursor, url_id):
+    flashed_messages = get_flashed_messages(with_categories=True)
 
-            flashed_messages = get_flashed_messages(with_categories=True)
+    url_data, checks = fetch_url_data(cursor, url_id)
 
-            if url_data is None:
-                flash('URL не найден.', 'danger')
-                return render_template('index.html', url_data=url_data), 404
+    if url_data is None:
+        flash('URL не найден.', 'danger')
+        return render_template('index.html', url_data=url_data), 404
 
-            return render_template(
-                'show_url.html',
-                url_id=url_data[0],
-                url_name=url_data[1],
-                created_at=url_data[2],
-                checks=checks,
-                flashed_messages=flashed_messages
-            )
+    return render_template(
+        'show_url.html',
+        url_id=url_data[0],
+        url_name=url_data[1],
+        created_at=url_data[2],
+        checks=checks,
+        flashed_messages=flashed_messages
+    )
 
 
 @app.get('/urls')
-def handle_get_request():
-    with get_db_connection() as conn:
-        with conn.cursor() as cursor:
-            urls = get_urls(cursor)
-            return render_template('list_urls.html', urls=urls)
+@init_cursor
+def handle_get_request(cursor):
+    urls = get_urls(cursor)
+    return render_template('list_urls.html', urls=urls)
 
 
 @app.post('/urls')
-def handle_post_request():
+@init_cursor
+def handle_post_request(cursor):
     url = request.form.get('url')
 
     if not is_valid_url(url):
@@ -82,55 +92,50 @@ def handle_post_request():
 
     normalized_url = normalize_url(url)
 
-    with get_db_connection() as conn:
-        with conn.cursor() as cursor:
-            url_id = insert_url(cursor, normalized_url)
+    url_id = insert_url(cursor, normalized_url)
 
-            if url_id is None:
-                existing_url_data = exist_url(cursor, normalized_url)
-                flash('Страница уже существует', 'info')
-                return redirect(
-                    url_for('show_url', url_id=existing_url_data[0])
-                )
+    if url_id is None:
+        existing_url_data = exist_url(cursor, normalized_url)
+        flash('Страница уже существует', 'info')
+        return redirect(
+            url_for('show_url', url_id=existing_url_data[0])
+        )
 
-            conn.commit()
-            flash('Страница успешно добавлена', 'success')
-            return redirect(url_for('show_url', url_id=url_id))
-
-    return render_template('index.html', url=url), 422
+    cursor.conn.commit()
+    flash('Страница успешно добавлена', 'success')
+    return redirect(url_for('show_url', url_id=url_id))
 
 
 @app.route('/urls/<int:url_id>/checks', methods=['POST'])
-def create_check(url_id):
-    with get_db_connection() as conn:
-        with conn.cursor() as cursor:
-            url_data = get_url_name(cursor, url_id)
+@init_cursor
+def create_check(cursor, url_id):
+    url_data = get_url_name(cursor, url_id)
 
-            if url_data is None:
-                flash('URL не найден.', 'danger')
-                return redirect(url_for('list_urls'))
+    if url_data is None:
+        flash('URL не найден.', 'danger')
+        return redirect(url_for('list_urls'))
 
-            url_name = url_data[0]
+    url_name = url_data[0]
 
-            response = fetch_url(url_name)
-            status_code = response.status_code
+    response = fetch_url(url_name)
+    status_code = response.status_code
 
-            h1_content, title_content, description_content = parse_html(
-                response.text
-            )
+    h1_content, title_content, description_content = parse_html(
+        response.text
+    )
 
-            created_at = date.today()
+    created_at = date.today()
 
-            insert_check(
-                cursor,
-                url_id,
-                status_code,
-                h1_content,
-                title_content,
-                description_content,
-                created_at
-            )
-            conn.commit()
+    insert_check(
+        cursor,
+        url_id,
+        status_code,
+        h1_content,
+        title_content,
+        description_content,
+        created_at
+    )
+    cursor.conn.commit()
 
     flash('Страница успешно проверена', 'success')
     return redirect(url_for('show_url', url_id=url_id))
